@@ -5,6 +5,8 @@ emit:
   - "@typespec/json-schema"
   # https://typespec.io/docs/emitters/openapi3/reference
   - "@typespec/openapi3"
+  # https://typespec.io/docs/emitters/protobuf/reference
+  - "@typespec/protobuf"
 options:
   "@typespec/json-schema":
     emitter-output-dir: "{output-dir}/json-schema"
@@ -15,3 +17,5 @@ options:
     emitter-output-dir: "{output-dir}/openapi3"
     openapi-versions:
       - "3.1.0"
+  "@typespec/protobuf":
+    emitter-output-dir: "{output-dir}/protobuf"
