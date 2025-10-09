@@ -1,7 +1,17 @@
+output-dir: "{project-root}/generated"
 emit:
+  # TODO emit GraphQL: https://github.com/microsoft/typespec/issues/4933
+  # https://typespec.io/docs/emitters/json-schema/reference
+  - "@typespec/json-schema"
+  # https://typespec.io/docs/emitters/openapi3/reference
   - "@typespec/openapi3"
 options:
+  "@typespec/json-schema":
+    emitter-output-dir: "{output-dir}/json-schema"
+    emitAllModels: true
+    emitAllRefs: true
+    # file-type: "json"
   "@typespec/openapi3":
-    emitter-output-dir: "{output-dir}/schema"
+    emitter-output-dir: "{output-dir}/openapi3"
     openapi-versions:
-      - 3.1.0
+      - "3.1.0"
