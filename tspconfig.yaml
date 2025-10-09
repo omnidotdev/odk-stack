@@ -1,5 +1,8 @@
 output-dir: "{project-root}/generated"
 emit:
+  # ================================
+  # base emitters
+  # ================================
   # TODO emit GraphQL: https://github.com/microsoft/typespec/issues/4933
   # https://typespec.io/docs/emitters/json-schema/reference
   - "@typespec/json-schema"
@@ -7,15 +10,22 @@ emit:
   - "@typespec/openapi3"
   # https://typespec.io/docs/emitters/protobuf/reference
   - "@typespec/protobuf"
+
+  # ================================
+  # programming language SDK clients
+  # ================================
+  - "@typespec/http-client-js"
 options:
   "@typespec/json-schema":
-    emitter-output-dir: "{output-dir}/json-schema"
+    emitter-output-dir: "{output-dir}/schema/json-schema"
     emitAllModels: true
     emitAllRefs: true
     # file-type: "json"
   "@typespec/openapi3":
-    emitter-output-dir: "{output-dir}/openapi3"
+    emitter-output-dir: "{output-dir}/schema/openapi3"
     openapi-versions:
       - "3.1.0"
   "@typespec/protobuf":
-    emitter-output-dir: "{output-dir}/protobuf"
+    emitter-output-dir: "{output-dir}/schema/protobuf"
+  "@typespec/http-client-js":
+    emitter-output-dir: "{output-dir}/clients/http-client-js"
