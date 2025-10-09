@@ -12,6 +12,7 @@
     "@typespec/http": "1.5.0",
     "@typespec/json-schema": "^1.5.0",
     "@typespec/openapi": "1.5.0",
-    "@typespec/openapi3": "1.5.0"
+    "@typespec/openapi3": "1.5.0",
+    "@typespec/protobuf": "^0.75.0"
   }
 }
