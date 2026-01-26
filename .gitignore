@@ -1,5 +1,39 @@
-# dependencies
+# Dependencies
 node_modules/
 
-# TypeSpec artifacts
+# Rust build artifacts
+target/
+*/target/
+Cargo.lock
+*/Cargo.lock
+
+# TypeScript build output
+dist/
+*/dist/
+
+# Bun lock files (keep root bun.lock for reproducibility)
+odk-ts/bun.lock
+
+# TypeSpec generated artifacts
 generated/
+generated-*/
+tsp-out/
+tspgen/out/
+
+# Test/scratch files
+schema-test*.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+*.tmp
+*.temp
+.odk-temp/

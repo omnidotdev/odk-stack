@@ -1,48 +1,131 @@
 import "@typespec/http";
 import "@typespec/protobuf";
 
-using Http;
-@service(#{ title: "Widget Service" })
-namespace DemoService;
+// Blog schema focused on real use case
 
-model Widget {
+// Status enums
+union UserRole {
+  admin: "admin",
+  editor: "editor",
+  author: "author",
+  subscriber: "subscriber",
+}
+
+union PostStatus {
+  draft: "draft",
+  published: "published",
+  archived: "archived",
+}
+
+union CommentStatus {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+}
+
+// Core blog models
+model User {
   id: string;
-  weight: int32;
-  color: "red" | "blue";
+  email: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  role: UserRole;
+  bio?: string;
+  avatarUrl?: string;
+  isActive: boolean;
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt?: string;
 }
 
-model WidgetList {
-  items: Widget[];
+model Category {
+  id: int32;
+  name: string;
+  slug: string;
+  description?: string;
+  parentId?: int32;
+  isActive: boolean;
+  createdAt: string;
 }
 
-@error
-model Error {
-  code: int32;
-  message: string;
+model Tag {
+  id: int32;
+  name: string;
+  slug: string;
+  description?: string;
+  color?: string;
+  createdAt: string;
 }
 
-model AnalyzeResult {
+model Post {
+  id: int64;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  content?: string;
+  status: PostStatus;
+  authorId: string;
+  categoryId?: int32;
+  featuredImageUrl?: string;
+  publishedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+  viewCount: int32;
+  metadata?: {};
+  tags?: string[];
+}
+
+model Comment {
+  id: int64;
+  postId: int64;
+  authorId?: string;
+  authorName?: string;
+  authorEmail?: string;
+  content: string;
+  status: CommentStatus;
+  parentId?: int64;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+model PostTag {
+  postId: int64;
+  tagId: int32;
+  createdAt: string;
+}
+
+// Analytics models
+model PageView {
+  id: int64;
+  postId?: int64;
+  userId?: string;
+  ipAddress: string;
+  userAgent: string;
+  referer?: string;
+  path: string;
+  timestamp: string;
+}
+
+model UserSession {
   id: string;
-  analysis: string;
+  userId: string;
+  ipAddress: string;
+  userAgent: string;
+  loginAt: string;
+  lastActivityAt: string;
+  logoutAt?: string;
+  isActive: boolean;
 }
 
-@route("/widgets")
-@tag("Widgets")
-interface Widgets {
-  /** List widgets */
-  @get list(): WidgetList | Error;
-  /** Read widgets */
-  @get read(@path id: string): Widget | Error;
-  /** Create a widget */
-  @post create(@body body: Widget): Widget | Error;
-  /** Update a widget */
-  @patch update(
-    @path id: string,
-    @body body: MergePatchUpdate<Widget>,
-  ): Widget | Error;
-  /** Delete a widget */
-  @delete delete(@path id: string): void | Error;
-
-  /** Analyze a widget */
-  @route("{id}/analyze") @post analyze(@path id: string): AnalyzeResult | Error;
+// Configuration model
+model SiteSetting {
+  key: string;
+  value: string;
+  description?: string;
+  type: string;
+  createdAt: string;
+  updatedAt?: string;
 }

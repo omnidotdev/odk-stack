@@ -1,4 +1,7 @@
 # TODO integrate with Extism: https://extism.org
+# TODO https://github.com/microsoft/typespec-mcp
+# TODO make a TypeSpec UI tool that walks the typespec config and allows toggling on/off the output
+# ZDK: ODK under the hood, but no programming required. Just someone using english.
 
 output-dir: "{project-root}/generated"
 emit:
@@ -16,7 +19,13 @@ emit:
   # ================================
   # programming language SDK clients
   # ================================
-  - "@typespec/http-client-js"
+  # - "@typespec/http-client-js"
+
+  # ================================
+  # database schema generators
+  # ================================
+  - "@omnidotdev/typespec-drizzle"
+
 options:
   "@typespec/json-schema":
     emitter-output-dir: "{output-dir}/schema/json-schema"
@@ -29,5 +38,10 @@ options:
       - "3.1.0"
   "@typespec/protobuf":
     emitter-output-dir: "{output-dir}/schema/protobuf"
-  "@typespec/http-client-js":
-    emitter-output-dir: "{output-dir}/clients/http-client-js"
+  # "@typespec/http-client-js":
+  # emitter-output-dir: "{output-dir}/clients/http-client-js"
+  "@omnidotdev/typespec-drizzle":
+    outputDir: "{output-dir}/db"
+    schemaFile: "schema.ts"
+    relationsFile: "relations.ts"
+    generateTypes: true
