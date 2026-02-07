@@ -13,8 +13,6 @@ export const {
   AUTH_CLIENT_SECRET,
   // billing
   VITE_BILLING_BASE_URL: BILLING_BASE_URL,
-  // payment processing
-  VITE_STRIPE_PORTAL_CONFIG_ID: STRIPE_PORTAL_CONFIG_ID,
 } = { ...import.meta.env, ...process.env };
 
 export const API_GRAPHQL_URL = `${API_BASE_URL}/graphql`;
@@ -23,8 +21,3 @@ export const API_GRAPHQL_URL = `${API_BASE_URL}/graphql`;
 export const isDevEnv = import.meta.env.DEV;
 export const isSelfHosted =
   SELF_HOSTED === "true" || VITE_SELF_HOSTED === "true";
-
-// billing provider
-export const billingProvider: "local" | "aether" = isSelfHosted
-  ? "local"
-  : "aether";
