@@ -2,19 +2,18 @@
 //!
 //! This example demonstrates defining a blog API schema as an Extism WASM plugin.
 //!
-//! Build with: cargo build --target wasm32-unknown-unknown --release
-//! Run with: odk compile target/wasm32-unknown-unknown/release/blog_plugin.wasm -o generated/
+//! Build with: odk build .
+//! Run with: odk compile target/odk/blog-plugin-rust.wasm -o generated/
 
 use extism_pdk::*;
-use odk_pdk::*;
+use odk_pdk::prelude::*;
 
 #[plugin_fn]
 pub fn get_schema() -> FnResult<String> {
     let mut schema = CompiledSchema::new("BlogAPI");
 
-    // Add imports
+    // Add imports for HTTP decorators used in raw block
     schema.add_import("@typespec/http");
-    schema.add_import("@omnidotdev/typespec-drizzle");
 
     // UserRole union
     schema.add_union(CompiledUnion {
@@ -41,14 +40,11 @@ pub fn get_schema() -> FnResult<String> {
     });
 
     // User model
-    let mut user = CompiledModel::new("User");
-    user.description = Some("A blog user account".into());
-    user.with_decorator("@table");
+    let mut user = CompiledModel::new("User").with_description("A blog user account");
 
     user.add_field(
         CompiledField::new("id", CompiledType::string())
             .with_format("uuid")
-            .with_decorator("@id")
             .with_description("Unique user identifier"),
     );
     user.add_field(
@@ -79,27 +75,21 @@ pub fn get_schema() -> FnResult<String> {
         CompiledField::new("role", CompiledType::reference("UserRole"))
             .with_description("User's permission level"),
     );
-    user.add_field(
-        CompiledField::new("createdAt", CompiledType::scalar("utcDateTime"))
-            .with_decorator("@createdAt"),
-    );
-    user.add_field(
-        CompiledField::new("updatedAt", CompiledType::scalar("utcDateTime"))
-            .with_decorator("@updatedAt"),
-    );
+    user.add_field(CompiledField::new(
+        "createdAt",
+        CompiledType::scalar("utcDateTime"),
+    ));
+    user.add_field(CompiledField::new(
+        "updatedAt",
+        CompiledType::scalar("utcDateTime"),
+    ));
 
     schema.add_model(user);
 
     // Post model
-    let mut post = CompiledModel::new("Post");
-    post.description = Some("A blog post".into());
-    post.with_decorator("@table");
+    let mut post = CompiledModel::new("Post").with_description("A blog post");
 
-    post.add_field(
-        CompiledField::new("id", CompiledType::string())
-            .with_format("uuid")
-            .with_decorator("@id"),
-    );
+    post.add_field(CompiledField::new("id", CompiledType::string()).with_format("uuid"));
     post.add_field(
         CompiledField::new("title", CompiledType::string())
             .with_constraints(FieldConstraints {
@@ -130,11 +120,7 @@ pub fn get_schema() -> FnResult<String> {
             })
             .with_description("Short excerpt for previews"),
     );
-    post.add_field(
-        CompiledField::new("authorId", CompiledType::string())
-            .with_format("uuid")
-            .with_decorator("@manyToOne(User)"),
-    );
+    post.add_field(CompiledField::new("authorId", CompiledType::string()).with_format("uuid"));
     post.add_field(CompiledField::new(
         "status",
         CompiledType::reference("PostStatus"),
@@ -142,27 +128,21 @@ pub fn get_schema() -> FnResult<String> {
     post.add_field(
         CompiledField::new("publishedAt", CompiledType::scalar("utcDateTime")).optional(),
     );
-    post.add_field(
-        CompiledField::new("createdAt", CompiledType::scalar("utcDateTime"))
-            .with_decorator("@createdAt"),
-    );
-    post.add_field(
-        CompiledField::new("updatedAt", CompiledType::scalar("utcDateTime"))
-            .with_decorator("@updatedAt"),
-    );
+    post.add_field(CompiledField::new(
+        "createdAt",
+        CompiledType::scalar("utcDateTime"),
+    ));
+    post.add_field(CompiledField::new(
+        "updatedAt",
+        CompiledType::scalar("utcDateTime"),
+    ));
 
     schema.add_model(post);
 
     // Comment model
-    let mut comment = CompiledModel::new("Comment");
-    comment.description = Some("A comment on a post".into());
-    comment.with_decorator("@table");
+    let mut comment = CompiledModel::new("Comment").with_description("A comment on a post");
 
-    comment.add_field(
-        CompiledField::new("id", CompiledType::string())
-            .with_format("uuid")
-            .with_decorator("@id"),
-    );
+    comment.add_field(CompiledField::new("id", CompiledType::string()).with_format("uuid"));
     comment.add_field(
         CompiledField::new("content", CompiledType::string()).with_constraints(FieldConstraints {
             min_length: Some(1),
@@ -170,39 +150,25 @@ pub fn get_schema() -> FnResult<String> {
             ..Default::default()
         }),
     );
-    comment.add_field(
-        CompiledField::new("postId", CompiledType::string())
-            .with_format("uuid")
-            .with_decorator("@manyToOne(Post)"),
-    );
-    comment.add_field(
-        CompiledField::new("authorId", CompiledType::string())
-            .with_format("uuid")
-            .with_decorator("@manyToOne(User)"),
-    );
+    comment.add_field(CompiledField::new("postId", CompiledType::string()).with_format("uuid"));
+    comment.add_field(CompiledField::new("authorId", CompiledType::string()).with_format("uuid"));
     comment.add_field(
         CompiledField::new("parentId", CompiledType::string())
             .with_format("uuid")
             .optional()
             .with_description("Parent comment ID for nested replies"),
     );
-    comment.add_field(
-        CompiledField::new("createdAt", CompiledType::scalar("utcDateTime"))
-            .with_decorator("@createdAt"),
-    );
+    comment.add_field(CompiledField::new(
+        "createdAt",
+        CompiledType::scalar("utcDateTime"),
+    ));
 
     schema.add_model(comment);
 
     // Tag model
-    let mut tag = CompiledModel::new("Tag");
-    tag.description = Some("A tag for categorizing posts".into());
-    tag.with_decorator("@table");
+    let mut tag = CompiledModel::new("Tag").with_description("A tag for categorizing posts");
 
-    tag.add_field(
-        CompiledField::new("id", CompiledType::string())
-            .with_format("uuid")
-            .with_decorator("@id"),
-    );
+    tag.add_field(CompiledField::new("id", CompiledType::string()).with_format("uuid"));
     tag.add_field(
         CompiledField::new("name", CompiledType::string()).with_constraints(FieldConstraints {
             min_length: Some(1),

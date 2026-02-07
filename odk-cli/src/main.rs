@@ -1,8 +1,8 @@
 //! ODK CLI - Unified Schema Compilation Tool
 //!
-//! Compile schemas from various sources to multiple targets:
-//! - Input: TypeScript (.ts), WASM plugins (.wasm), JSON (.json)
-//! - Output: TypeSpec emitters or native Rust emitters
+//! Compile schemas from various sources to TypeSpec targets:
+//! - Input: TypeScript (.ts), WASM plugins (.wasm), YAML (.yaml), JSON (.json)
+//! - Output: Any TypeSpec emitter
 
 use anyhow::{Context, Result, bail};
 use camino::Utf8PathBuf;
@@ -12,11 +12,13 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-mod emitters;
+mod builder;
+mod config;
 mod error_mapper;
 mod extism_host;
 mod loaders;
 mod source_map;
+mod templates;
 mod ts_executor;
 mod ts_schema_adapter;
 mod typespec_bridge;
@@ -32,23 +34,22 @@ struct Cli {
 enum Commands {
     /// Compile a schema and emit to targets
     Compile {
-        /// Input source: .ts, .yaml, .json, or .wasm file
-        input: Utf8PathBuf,
+        /// Input source: .ts, .yaml, .json, or .wasm file (optional if in config)
+        input: Option<Utf8PathBuf>,
+
+        /// Config file path (default: auto-detect odk.config.*)
+        #[arg(short, long)]
+        config: Option<Utf8PathBuf>,
 
         /// Output directory for generated files
-        #[arg(short, long, default_value = "./generated")]
-        out: Utf8PathBuf,
+        #[arg(short, long)]
+        out: Option<Utf8PathBuf>,
 
-        /// Emitters to use (comma-separated or multiple -e flags)
-        /// Native: json-schema, openapi, typescript
-        /// TypeSpec: @typespec/json-schema, @typespec/openapi3, etc.
+        /// TypeSpec emitters to use (comma-separated or multiple -e flags)
+        /// Examples: @typespec/json-schema, @typespec/openapi3, @typespec/protobuf
         /// Default: @typespec/json-schema, @typespec/openapi3
         #[arg(short, long, value_delimiter = ',')]
         emit: Option<Vec<String>>,
-
-        /// Use native Rust emitters instead of TypeSpec (faster, no Node.js required)
-        #[arg(long)]
-        native: bool,
 
         /// Namespace for generated TypeSpec (overrides schema name)
         #[arg(short, long)]
@@ -60,7 +61,30 @@ enum Commands {
     },
 
     /// Initialize a new ODK project
-    Init,
+    Init {
+        /// Language/format: rust, python, yaml (prompts if not specified)
+        #[arg(short, long)]
+        lang: Option<String>,
+
+        /// Project name (default: current directory name)
+        #[arg(short, long)]
+        name: Option<String>,
+    },
+
+    /// Build a schema plugin to WASM
+    Build {
+        /// Input: directory with Cargo.toml (default: current dir)
+        #[arg(default_value = ".")]
+        input: Utf8PathBuf,
+
+        /// Output .wasm file (default: ./target/odk/<name>.wasm)
+        #[arg(short, long)]
+        out: Option<Utf8PathBuf>,
+
+        /// Build in release mode
+        #[arg(long, default_value = "true")]
+        release: bool,
+    },
 
     /// Check/validate a schema without emitting
     Check {
@@ -89,14 +113,20 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Compile {
             input,
+            config,
             out,
             emit,
-            native,
             namespace,
             keep_temp,
-        } => cmd_compile(input, out, emit, native, namespace, keep_temp),
+        } => cmd_compile(input, config, out, emit, namespace, keep_temp),
 
-        Commands::Init => cmd_init(),
+        Commands::Init { lang, name } => cmd_init(lang, name),
+
+        Commands::Build {
+            input,
+            out,
+            release,
+        } => builder::cmd_build(input, out, release),
 
         Commands::Check { input } => cmd_check(input),
 
@@ -152,16 +182,47 @@ fn load_schema(input: &Utf8PathBuf) -> Result<CompiledSchema> {
 
 /// Compile command: load schema and emit to targets.
 fn cmd_compile(
-    input: Utf8PathBuf,
-    out: Utf8PathBuf,
+    input: Option<Utf8PathBuf>,
+    config_path: Option<Utf8PathBuf>,
+    out: Option<Utf8PathBuf>,
     emit: Option<Vec<String>>,
-    native: bool,
     namespace: Option<String>,
     keep_temp: bool,
 ) -> Result<()> {
+    // Load config file if present
+    let cfg = if let Some(ref path) = config_path {
+        eprintln!("Loading config from {}...", path);
+        Some(config::load_config(path)?)
+    } else if let Some(found) = config::find_config_file() {
+        eprintln!("Using config file: {}", found);
+        Some(config::load_config(&found)?)
+    } else {
+        None
+    };
+
+    // Merge config with CLI args (CLI takes precedence)
+    let (schema_path, output_dir, emitters, ns) = if let Some(cfg) = cfg {
+        let merged = config::merge_with_cli(cfg, input.as_ref(), out.as_ref(), &emit, &namespace);
+        (merged.schema, merged.output, merged.emit, merged.namespace)
+    } else {
+        (
+            input,
+            out.unwrap_or_else(|| Utf8PathBuf::from("./generated")),
+            emit.unwrap_or_default(),
+            namespace,
+        )
+    };
+
+    // Ensure we have a schema path
+    let schema_path = schema_path.ok_or_else(|| {
+        anyhow::anyhow!(
+            "No schema file specified. Use: odk compile <schema> or set 'schema' in config file."
+        )
+    })?;
+
     // Load schema
-    eprintln!("Loading schema from {}...", input);
-    let schema = load_schema(&input)?;
+    eprintln!("Loading schema from {}...", schema_path);
+    let schema = load_schema(&schema_path)?;
     eprintln!(
         "  Loaded: {} ({} models, {} unions)",
         schema.name,
@@ -169,47 +230,7 @@ fn cmd_compile(
         schema.unions.len()
     );
 
-    let emit = emit.unwrap_or_default();
-
-    if native {
-        // Use native Rust emitters
-        compile_with_native(&schema, &emit, &out)
-    } else {
-        // Use TypeSpec emitters (default)
-        compile_with_typespec(&schema, &emit, &out, namespace, keep_temp)
-    }
-}
-
-/// Compile using native Rust emitters.
-fn compile_with_native(
-    schema: &CompiledSchema,
-    targets: &[String],
-    out_dir: &Utf8PathBuf,
-) -> Result<()> {
-    eprintln!("Using native emitters...");
-
-    // Parse targets
-    let emit_targets: Vec<emitters::NativeEmitTarget> = if targets.is_empty() {
-        emitters::NativeEmitTarget::all()
-    } else {
-        targets
-            .iter()
-            .filter_map(|t| emitters::NativeEmitTarget::from_str(t))
-            .collect()
-    };
-
-    if emit_targets.is_empty() {
-        bail!(
-            "No valid native emit targets. Valid targets: json-schema, openapi, typescript\n\
-             For TypeSpec emitters (e.g., @typespec/openapi3), remove the --native flag."
-        );
-    }
-
-    // Emit
-    emitters::emit(schema, &emit_targets, out_dir)?;
-
-    eprintln!("Generated output to {}", out_dir);
-    Ok(())
+    compile_with_typespec(&schema, &emitters, &output_dir, ns, keep_temp)
 }
 
 /// Compile using TypeSpec emitters.
@@ -224,8 +245,7 @@ fn compile_with_typespec(
     if which::which("tsp").is_err() {
         bail!(
             "TypeSpec compiler (tsp) not found. Install it with:\n\
-             npm install -g @typespec/compiler\n\n\
-             Or use --native flag for Rust emitters (no Node.js required)."
+             npm install -g @typespec/compiler"
         );
     }
 
@@ -253,14 +273,16 @@ fn compile_with_typespec(
     // Write TypeSpec source
     fs::write(&tsp_file, &tsp_source)?;
 
-    // Create package.json
+    // Create package.json with all requested emitters
+    let mut deps = serde_json::Map::new();
+    deps.insert("@typespec/compiler".into(), serde_json::json!("*"));
+    for emitter in &emitters {
+        deps.insert(emitter.clone(), serde_json::json!("*"));
+    }
     let package_json = serde_json::json!({
         "name": "odk-temp-project",
         "type": "module",
-        "dependencies": {
-            "@typespec/compiler": "*",
-            "@typespec/json-schema": "*"
-        }
+        "dependencies": deps
     });
     fs::write(temp_path.join("package.json"), package_json.to_string())?;
 
@@ -307,7 +329,7 @@ fn compile_with_typespec(
             .join("\n"),
         emitters
             .iter()
-            .map(|e| format!("  \"{}\":\n    emitter-output-dir: \"{{output-dir}}\"", e))
+            .map(|e| emitter_options(e))
             .collect::<Vec<_>>()
             .join("\n")
     );
@@ -343,6 +365,24 @@ fn compile_with_typespec(
     Ok(())
 }
 
+/// Generate emitter-specific options for tspconfig.yaml.
+fn emitter_options(emitter: &str) -> String {
+    match emitter {
+        "@typespec/json-schema" => format!(
+            "  \"{}\":\n    emitter-output-dir: \"{{output-dir}}\"\n    emitAllModels: true\n    emitAllRefs: true",
+            emitter
+        ),
+        "@typespec/openapi3" => format!(
+            "  \"{}\":\n    emitter-output-dir: \"{{output-dir}}\"",
+            emitter
+        ),
+        _ => format!(
+            "  \"{}\":\n    emitter-output-dir: \"{{output-dir}}\"",
+            emitter
+        ),
+    }
+}
+
 /// Find node_modules directory by searching upward.
 fn find_node_modules(start: &Utf8PathBuf) -> Option<PathBuf> {
     let mut current = start.as_std_path().to_path_buf();
@@ -358,46 +398,101 @@ fn find_node_modules(start: &Utf8PathBuf) -> Option<PathBuf> {
 }
 
 /// Init command: create a new ODK project.
-fn cmd_init() -> Result<()> {
-    eprintln!("Initializing ODK project...");
+fn cmd_init(lang: Option<String>, name: Option<String>) -> Result<()> {
+    use templates::ProjectLang;
 
-    let schema_content = r#"import { schema, model, field, union } from "@omnidotdev/odk";
+    // Determine project name
+    let project_name = match name {
+        Some(n) => n,
+        None => {
+            // Use current directory name
+            std::env::current_dir()?
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "my-schema".to_string())
+        }
+    };
 
-// Define enums/unions
-export const UserRole = union("UserRole", ["admin", "user", "guest"]);
-
-// Define models
-export const User = model("User", {
-  id: field.uuid(),
-  email: field.string(),
-  name: field.string().optional(),
-  role: field.ref(UserRole),
-  createdAt: field.timestamp(),
-});
-
-// Export schema
-export default schema("MyApp", [User, UserRole]);
-"#;
-
-    fs::write("schema.ts", schema_content)?;
-    eprintln!("Created schema.ts");
+    // Determine language (interactive if not specified)
+    let project_lang = match lang {
+        Some(l) => ProjectLang::from_str(&l).ok_or_else(|| {
+            anyhow::anyhow!("Unknown language: '{}'. Use: rust, python, or yaml", l)
+        })?,
+        None => prompt_for_language()?,
+    };
 
     eprintln!(
-        r#"
-Next steps:
-  1. Edit schema.ts to define your models
-  2. Run: odk compile schema.ts
+        "Initializing {} project '{}'...",
+        project_lang.display_name(),
+        project_name
+    );
 
-Options:
-  TypeSpec emitters (default, recommended):
-    odk compile schema.ts -e @typespec/openapi3,@typespec/json-schema
+    // Create project based on language
+    let is_directory = match project_lang {
+        ProjectLang::Rust => {
+            // Create directory structure
+            let dir = std::path::Path::new(&project_name);
+            fs::create_dir_all(dir.join("src"))?;
 
-  Native emitters (faster, no Node.js):
-    odk compile schema.ts -e json-schema,openapi,typescript --native
-"#
+            // Write Cargo.toml
+            let cargo_toml = templates::render(templates::RUST_CARGO_TOML, &project_name);
+            fs::write(dir.join("Cargo.toml"), cargo_toml)?;
+
+            // Write src/lib.rs
+            let lib_rs = templates::render(templates::RUST_LIB_RS, &project_name);
+            fs::write(dir.join("src/lib.rs"), lib_rs)?;
+
+            true
+        }
+        ProjectLang::Python => {
+            // Write schema.py in current directory
+            let schema_py = templates::render(templates::PYTHON_SCHEMA, &project_name);
+            fs::write("schema.py", schema_py)?;
+
+            false
+        }
+        ProjectLang::Yaml => {
+            // Write schema.yaml in current directory
+            let schema_yaml = templates::render(templates::YAML_SCHEMA, &project_name);
+            fs::write("schema.yaml", schema_yaml)?;
+
+            false
+        }
+    };
+
+    // Print success message with next steps
+    eprintln!(
+        "{}",
+        templates::post_init_message(project_lang, &project_name, is_directory)
     );
 
     Ok(())
+}
+
+/// Prompt user to select a language interactively
+fn prompt_for_language() -> Result<templates::ProjectLang> {
+    use std::io::{self, Write};
+
+    eprintln!("Select a project type:");
+    for (i, lang) in templates::ProjectLang::all().iter().enumerate() {
+        eprintln!("  {}. {}", i + 1, lang.display_name());
+    }
+    eprint!("Enter choice [1-3]: ");
+    io::stderr().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    let choice: usize = input
+        .trim()
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid choice. Please enter 1, 2, or 3."))?;
+
+    templates::ProjectLang::all()
+        .get(choice.saturating_sub(1))
+        .copied()
+        .ok_or_else(|| anyhow::anyhow!("Invalid choice. Please enter 1, 2, or 3."))
 }
 
 /// Check command: validate a schema without emitting.

@@ -172,7 +172,7 @@ pub enum LiteralValue {
 }
 
 /// A compiled union/enum type.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CompiledUnion {
     /// Union name
     pub name: String,
@@ -388,6 +388,42 @@ impl CompiledType {
     pub fn literal_string(value: impl Into<String>) -> Self {
         Self::Literal {
             value: LiteralValue::String(value.into()),
+        }
+    }
+
+    /// Create a scalar type by name (e.g., "utcDateTime", "plainDate").
+    pub fn scalar(name: &str) -> Self {
+        let scalar_type = match name.to_lowercase().as_str() {
+            "string" => ScalarType::String,
+            "int32" => ScalarType::Int32,
+            "int64" => ScalarType::Int64,
+            "float32" => ScalarType::Float32,
+            "float64" => ScalarType::Float64,
+            "boolean" | "bool" => ScalarType::Boolean,
+            "date" => ScalarType::Date,
+            "datetime" => ScalarType::Datetime,
+            "utcdatetime" => ScalarType::UtcDateTime,
+            "offsetdatetime" => ScalarType::OffsetDateTime,
+            "plaindate" => ScalarType::PlainDate,
+            "plaintime" => ScalarType::PlainTime,
+            "duration" => ScalarType::Duration,
+            "bytes" => ScalarType::Bytes,
+            "url" => ScalarType::Url,
+            _ => ScalarType::Unknown,
+        };
+        Self::Scalar { name: scalar_type }
+    }
+}
+
+impl CompiledUnionVariant {
+    /// Create a variant with a string literal type.
+    pub fn literal_string(value: impl Into<String>) -> Self {
+        let s = value.into();
+        Self {
+            name: s.clone(),
+            variant_type: Some(CompiledType::Literal {
+                value: LiteralValue::String(s),
+            }),
         }
     }
 }

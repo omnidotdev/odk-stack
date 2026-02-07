@@ -127,4 +127,4 @@ print(schema.to_json())
 
 ## License
 
-MIT
+The code in this repository is licensed under MIT, &copy; [Omni LLC](https://omni.dev). See [LICENSE.md](LICENSE.md) for more information.

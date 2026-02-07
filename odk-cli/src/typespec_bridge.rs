@@ -17,32 +17,25 @@ use odk_schema::{
 pub fn compiled_to_typespec(schema: &CompiledSchema, namespace: &str) -> String {
     let mut lines = Vec::new();
 
-    // Standard imports - must come FIRST before any declarations
-    lines.push("import \"@typespec/json-schema\";".to_string());
-
-    // Custom imports from schema
+    // Emit imports from schema (must come first)
     for import in &schema.imports {
         lines.push(format!("import \"{}\";", import));
     }
 
-    lines.push(String::new());
-
-    // Using statements after imports
-    lines.push("using TypeSpec.JsonSchema;".to_string());
-
-    // Add using statements for common libraries if imported
-    if schema.imports.iter().any(|i| i.contains("@typespec/http")) {
-        lines.push("using TypeSpec.Http;".to_string());
-    }
-    if schema
-        .imports
-        .iter()
-        .any(|i| i.contains("typespec-drizzle"))
-    {
-        lines.push("using Drizzle;".to_string());
+    if !schema.imports.is_empty() {
+        lines.push(String::new());
     }
 
-    lines.push(String::new());
+    // Emit 'using' statements to bring decorators into scope
+    for import in &schema.imports {
+        if let Some(using_ns) = import_to_using_namespace(import) {
+            lines.push(format!("using {};", using_ns));
+        }
+    }
+
+    if !schema.imports.is_empty() {
+        lines.push(String::new());
+    }
 
     // Namespace
     lines.push(format!("namespace {};", sanitize_identifier(namespace)));
@@ -142,7 +135,6 @@ fn emit_model(model: &CompiledModel) -> String {
         lines.push(decorator.to_string());
     }
 
-    lines.push("@jsonSchema".to_string());
     lines.push(format!("model {} {{", sanitize_identifier(&model.name)));
 
     for field in &model.fields {
@@ -307,6 +299,27 @@ fn escape_string(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
+/// Map a TypeSpec import to its corresponding 'using' namespace.
+/// Returns None if the package doesn't expose decorators that need 'using'.
+fn import_to_using_namespace(import: &str) -> Option<&'static str> {
+    match import {
+        "@typespec/http" => Some("TypeSpec.Http"),
+        "@typespec/rest" => Some("TypeSpec.Rest"),
+        "@typespec/openapi" => Some("TypeSpec.OpenAPI"),
+        "@typespec/openapi3" => Some("TypeSpec.OpenAPI"),
+        "@typespec/json-schema" => Some("TypeSpec.JsonSchema"),
+        "@typespec/protobuf" => Some("TypeSpec.Protobuf"),
+        "@typespec/versioning" => Some("TypeSpec.Versioning"),
+        "@typespec/xml" => Some("TypeSpec.Xml"),
+        "@typespec/events" => Some("TypeSpec.Events"),
+        "@typespec/streams" => Some("TypeSpec.Streams"),
+        "@typespec/sse" => Some("TypeSpec.SSE"),
+        // Emitter-only packages (no decorators to bring into scope)
+        // "@omnidotdev/typespec-drizzle" - emitter only, no namespace
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -327,5 +340,20 @@ mod tests {
         assert!(tsp.contains("model User {"));
         assert!(tsp.contains("id: string;"));
         assert!(tsp.contains("name?: string;"));
+        // Should not contain auto-imports
+        assert!(!tsp.contains("@jsonSchema"));
+        assert!(!tsp.contains("using TypeSpec"));
+    }
+
+    #[test]
+    fn test_schema_with_imports() {
+        let mut schema = CompiledSchema::new("TestAPI");
+        schema.add_import("@typespec/http");
+        schema.add_import("@omnidotdev/typespec-drizzle");
+
+        let tsp = compiled_to_typespec(&schema, "TestAPI");
+
+        assert!(tsp.contains("import \"@typespec/http\";"));
+        assert!(tsp.contains("import \"@omnidotdev/typespec-drizzle\";"));
     }
 }

@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://weaver.omni.dev/schema.json
+# ODK - Omni Development Kit
+
+workspace: .
+
+repositories:
+  odk:
+    url: git@github.com:omnidotdev/odk.git
+    path: .
+    tags: [devtools, metarepo]
+    description: Omni Development Kit
+
+  odk-cli:
+    path: ./odk-cli
+    tags: [cli, rust]
+    description: ODK CLI tool
+
+  odk-pdk-py:
+    path: ./odk-pdk-py
+    tags: [pdk, python]
+    description: ODK Plugin Development Kit for Python
+
+  odk-pdk-rust:
+    path: ./odk-pdk-rust
+    tags: [pdk, rust]
+    description: ODK Plugin Development Kit for Rust
+
+  odk-schema:
+    path: ./odk-schema
+    tags: [schema]
+    description: ODK JSON schema definitions
+
+  odk-ts:
+    path: ./odk-ts
+    tags: [sdk, typescript]
+    description: ODK TypeScript SDK

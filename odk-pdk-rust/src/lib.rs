@@ -40,6 +40,8 @@ pub mod prelude {
         CompiledField, CompiledModel, CompiledSchema, CompiledType, CompiledUnion,
         CompiledUnionVariant, FieldConstraints, LiteralValue, ScalarType,
     };
+    // Alias for convenience
+    pub use crate::odk_schema::CompiledUnionVariant as UnionVariant;
     pub use extism_pdk::{FnResult, Json, plugin_fn};
 }
 

@@ -1,5 +1,5 @@
 [package]
-name = "blog-plugin"
+name = "blog-plugin-rust"
 version = "0.1.0"
 edition = "2021"
 description = "Blog API schema as an ODK WASM plugin"

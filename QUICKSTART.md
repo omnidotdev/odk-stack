@@ -114,14 +114,6 @@ pip install odk-pdk
 
 Default (no `-e` flag): `@typespec/json-schema` + `@typespec/openapi3`
 
-Native emitters (no Node.js required):
-
-```sh
-odk compile schema.yaml --native -e json-schema,openapi,typescript
-```
-
-**Note:** Native emitters support `json-schema`, `openapi`, and `typescript`. They don't require Node.js and work with any schema that doesn't rely on TypeSpec-specific decorators.
-
 ## CLI Reference
 
 ```sh
@@ -129,8 +121,7 @@ odk compile <input> [options]
 
 Options:
   -o, --out <dir>      Output directory (default: ./generated)
-  -e, --emit <list>    Emitters (comma-separated)
-  --native             Use native Rust emitters (faster, no Node.js)
+  -e, --emit <list>    TypeSpec emitters (comma-separated)
   --keep-temp          Keep temporary TypeSpec files
 
 odk check <input>      Validate schema without emitting
@@ -142,3 +133,5 @@ odk init               Create a new project
 
 - See `examples/` for complete schemas
 - Read `docs/` for detailed guides
+
+CLI is good, but odk should support config files (json, jsonc, yaml, ts) with option to pass config file as a path. look up best practices for this
