@@ -44,3 +44,10 @@ docs/
 # Env files
 .env.*
 .env.local.template
+
+# Python
+__pycache__/
+*.pyc
+
+# Local config
+weaver.yaml
