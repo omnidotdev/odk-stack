@@ -1,3 +1,0 @@
-bun knip
-bun biome check --write --staged --no-errors-on-unmatched
-bun tsc --noEmit

@@ -1,0 +1,18 @@
+# ODK Services Configuration
+# Copy to services.yaml and customize
+#
+# Format:
+#   services:
+#     - name:
+#         repo: repository URL (required)
+#         path: local path (optional, defaults to services/name)
+#         metarepo: true if this is a metarepo with services/ subdirectory
+
+services:
+  # Core SDK (Rust workspace + TypeScript SDK + Python PDK)
+  - odk-core:
+      repo: git@github.com:omnidotdev/odk-core#master
+
+  # Dashboard
+  - odk-site:
+      repo: git@github.com:omnidotdev/odk-site#master
