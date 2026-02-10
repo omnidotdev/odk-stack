@@ -51,3 +51,7 @@ __pycache__/
 
 # Local config
 weaver.yaml
+
+# CI/CD and dependency management (belong in individual repos)
+.github/
+renovate.json
