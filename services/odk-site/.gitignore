@@ -14,12 +14,6 @@ certificates
 
 # environment
 *.env*
-# below are safe to commit
-!.env
-!.env.development
-!.env.production
-!.env.test
-!.env.local.template
 
 # Serwist (https://serwist.pages.dev)
 public/sw*

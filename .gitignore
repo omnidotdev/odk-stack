@@ -37,3 +37,10 @@ Thumbs.db
 *.tmp
 *.temp
 .odk-temp/
+
+# Docs
+docs/
+
+# Env files
+.env.*
+.env.local.template
