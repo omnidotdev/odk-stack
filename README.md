@@ -6,7 +6,7 @@ Define your data model once. Generate OpenAPI, Protobuf, Drizzle ORM, JSON Schem
 
 | Service | Description |
 |---------|-------------|
-| [odk-core](https://github.com/omnidotdev/odk-core) | Core SDK (Rust CLI, schema IR, plugin SDKs, TypeScript SDK) |
+| [odk](https://github.com/omnidotdev/odk) | Core SDK (Rust CLI, schema IR, plugin SDKs, TypeScript SDK) |
 | [odk-site](https://github.com/omnidotdev/odk-site) | Dashboard |
 
 ## Getting Started
@@ -25,4 +25,4 @@ Define your data model once. Generate OpenAPI, Protobuf, Drizzle ORM, JSON Schem
 
 ## License
 
-The code in this repository is licensed under MIT, &copy; [Omni LLC](https://omni.dev). See [LICENSE.md](LICENSE.md) for more information.
+The code in this repository is licensed under Apache 2.0, &copy; [Omni LLC](https://omni.dev). See [LICENSE.md](LICENSE.md) for more information.
