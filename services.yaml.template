@@ -10,8 +10,8 @@
 
 services:
   # Core SDK (Rust workspace + TypeScript SDK + Python PDK)
-  - odk-core:
-      repo: git@github.com:omnidotdev/odk-core#master
+  - odk:
+      repo: git@github.com:omnidotdev/odk#master
 
   # Dashboard
   - odk-site:
