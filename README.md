@@ -7,7 +7,7 @@ Define your data model once. Generate OpenAPI, Protobuf, Drizzle ORM, JSON Schem
 | Service | Description |
 |---------|-------------|
 | [odk](https://github.com/omnidotdev/odk) | Core SDK (Rust CLI, schema IR, plugin SDKs, TypeScript SDK) |
-| [odk-site](https://github.com/omnidotdev/odk-site) | Dashboard |
+| [odk-site](https://github.com/omnidotdev/odk-site) | Marketing website |
 
 ## Getting Started
 
